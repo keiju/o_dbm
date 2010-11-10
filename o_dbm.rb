@@ -1,8 +1,8 @@
 #
 #   o_dbm.rb - オブジェクト指向データベース風Object Base dbm
-#   	$Release Version: 0.1$
-#   	$Revision: 1.1 $
-#   	$Date: 1997/12/11 15:31:26 $
+#   	$Release Version: 0.2$
+#   	$Revision: 1.2 $
+#   	$Date: 1998/01/09 08:06:07 $
 #   	by Keiju ISHITSUKA(Nippon Rational Inc.)
 #
 # --
@@ -15,13 +15,24 @@ require "dbm"
 require "marshal"
 
 class ObjectDBM
-  RCS_ID='-$Header: /home/keiju/var/src/var.lib/ruby/ruby.no-svn/o_dbm/RCS/o_dbm.rb,v 1.1 1997/12/11 15:31:26 keiju Exp $-'
+  RCS_ID='-$Header: /home/keiju/var/src/var.lib/ruby/ruby.no-svn/o_dbm/RCS/o_dbm.rb,v 1.2 1998/01/09 08:06:07 keiju Exp $-'
 
   extend Exception2MessageMapper
 
-  def_exception :ErrOnlyUsableTopTransaction, "トップトランザクションでしか実行できないオペレーション(%s)を実行しようとしました."
-  def_exception :ErrOnlyUsableInTransaction, "トランザクション内でないと実行できないオペレーション(%s)を実行しようとしました."
-  def_exception :ErrMixedTransaction, "静的トランザクションと動的トランザクションを混在して利用しようとしました."
+  # トップトランザクションでしか実行できないオペレーション(%s)を実行し
+  # ようとしました.
+  def_exception(:ErrOnlyUsableTopTransaction, 
+		"This operation(%s) only executable top transaction.")
+
+  # トランザクション内でないと実行できないオペレーション(%s)を実行しよ
+  # うとしました. 
+  def_exception(:ErrOnlyUsableInTransaction, 
+		"This operation(%s) only executable in transaction.")
+
+  # 静的トランザクションと動的トランザクションを混在して利用することは
+  # できません. 
+  def_exception(:ErrMixedTransaction, 
+		"Static transaction and Dynamic transaction can't use mixed")
 
   include Enumerable
 
