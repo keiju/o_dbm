@@ -1,8 +1,8 @@
 #
-#   o_dbm.rb - オブジェクト指向データベース風Object Base dbm
-#   	$Release Version: 0.4$
-#   	$Revision: 1.4 $
-#   	$Date: 2001/05/09 10:14:14 $
+#   o_dbm.rb - オブジェクト指向データベース風Object Base DBM
+#   	$Release Version: 0.4.1$
+#   	$Revision: 1.6 $
+#   	$Date: 2002/07/11 11:20:10 $
 #   	by Keiju ISHITSUKA(Nippon Rational Inc.)
 #
 # --
@@ -13,10 +13,10 @@
 require "e2mmap"
 
 class ObjectDBM
-  @RELEASE_VERSION = "0.4"
-  @LAST_UPDATE_DATE = "01/05/09"
+  @RELEASE_VERSION = "0.4.1"
+  @LAST_UPDATE_DATE = "02/02/13"
 
-  @RCS_ID='-$Id: o_dbm.rb,v 1.4 2001/05/09 10:14:14 keiju Exp $-'
+  @RCS_ID='-$Id: o_dbm.rb,v 1.6 2002/07/11 11:20:10 keiju Exp $-'
 
   extend Exception2MessageMapper
 
@@ -146,7 +146,6 @@ class ObjectDBM
     return obj unless obj == NULL
       
     return @default_value unless s = @db[key]
-    obj = Marshal.load(s)
     @read_cache[key] = obj if mode != NO_CACHING
     obj
   end
@@ -156,7 +155,8 @@ class ObjectDBM
 
     return @write_cache[key] = obj unless (obj = @read_cache[key]) == NULL
     return @default_value unless s = @db[key]
-    obj = @write_cache[key] = @read_cache[key] = Marshal.load(s)
+    obj = @write_cache[key] = @read_cache[key] = s
+
     @delete_cache.delete(key)
     obj
   end
@@ -232,7 +232,7 @@ class ObjectDBM
 
     if mode != SCAN_DB_ONLY
       @read_cache.each_value{|r| return true if yield root, r}
-      return false if mode == SCAN_CASHE_ONLY
+      return false if mode == SCAN_CACHE_ONLY
     end
     @db.each_value{|r| return true if yield root, r}
     false
@@ -261,10 +261,8 @@ class ObjectDBM
     end
 
     if mode != SCAN_CACHE_ONLY
-      @db.each do |key, row_v|
+      @db.each do |key, obj|
 	next unless mode == SCAN_DB_ONLY or @read_cache[key] == NULL
-
-	obj = Marshal.load(row_v) 
 	@read_cache[key] = obj if mode == READ_CACHING
 	@write_cache[key] = obj if mode == UPDATE
 	yield key, obj
@@ -420,7 +418,7 @@ class ObjectDBM
     end
     
     for key, value in @write_cache
-      @db[key] = Marshal.dump(value)
+      @db[key] = value
     end
     @db.flush
     @write_cache.clear
@@ -698,31 +696,38 @@ class ObjectDBM
     end
 
     def [](key)
-      db[key]
+      materialize_value(db[key])
     end
 
     def []=(key, value)
-      db[key] = value
+      db[key] = serialize_value(value)
     end
 
     def has_key?(key)
       db.key?(key)
     end
 
-    def each(&block)
-      db.each &block
+    def each
+      db.each{|k, v| yield k, materialize_value(v)}
     end
 
     def each_key(&block)
       db.each_key &block
     end
 
-    def each_value(&block)
-      db.each_value &block
+    def each_value
+      db.each_value{|v| yield materialize_value(v)}
     end
 
     def delete(key)
       db.delete(key)
+    end
+
+    def serialize_value(v)
+      ODBM.Fail ErrAdapterInterfaceNotImplement, "serialize_value(v)"
+    end
+    def materialize_value(v)
+      ODBM.Fail ErrAdapterInterfaceNotImplement, "materialize_value(v)"
     end
   end
 
@@ -737,6 +742,15 @@ class ObjectDBM
 
     def db
       @db
+    end
+
+    def serialize_value(v)
+      Marshal.dump(v)
+    end
+
+    def materialize_value(v)
+      return v unless v
+      Marshal.load(v)
     end
 
     def flush
@@ -789,6 +803,13 @@ class ObjectDBM
     def db
       @hash
     end
+    def serialize_value(v)
+      v
+    end
+
+    def materialize_value(v)
+      v
+    end
 
     # commit database
     def flush
@@ -797,6 +818,40 @@ class ObjectDBM
       Marshal.dump(@hash, file)
       file.close
       File.rename(newfile, @db_name)
+    end
+
+    # close database
+    def close
+      flush
+      @hash = nil
+    end
+  end
+
+  class VDB_Adapter<DB_Adapter
+    include HashLikeInterface
+
+    VDBS = {}
+
+    def initialize(name)
+      @db_name = name
+      @hash = VDBS[@db_name]
+      @hash = {} unless @hash
+    end
+
+    def db
+      @hash
+    end
+    def serialize_value(v)
+      v
+    end
+
+    def materialize_value(v)
+      v
+    end
+
+    # commit database
+    def flush
+      VDBS[@db_name] =  @hash
     end
 
     # close database
