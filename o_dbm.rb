@@ -1,8 +1,8 @@
 #
 #   o_dbm.rb - オブジェクト指向データベース風Object Base dbm
-#   	$Release Version: 0.2$
-#   	$Revision: 1.3 $
-#   	$Date: 1998/03/29 17:09:12 $
+#   	$Release Version: 0.4$
+#   	$Revision: 1.4 $
+#   	$Date: 2001/05/09 10:14:14 $
 #   	by Keiju ISHITSUKA(Nippon Rational Inc.)
 #
 # --
@@ -11,28 +11,32 @@
 #
 
 require "e2mmap"
-require "dbm"
-require "marshal"
 
 class ObjectDBM
-  @RCS_ID='-$Id: o_dbm.rb,v 1.3 1998/03/29 17:09:12 keiju Exp $-'
+  @RELEASE_VERSION = "0.4"
+  @LAST_UPDATE_DATE = "01/05/09"
+
+  @RCS_ID='-$Id: o_dbm.rb,v 1.4 2001/05/09 10:14:14 keiju Exp $-'
 
   extend Exception2MessageMapper
 
   # トップトランザクションでしか実行できないオペレーションを実行しよう
   # とした.  
   def_exception(:ErrOnlyUsableTopTransaction, 
-		"This operation(%s) only executable top transaction.")
+		"The operation (%s) can only be executed in the top level transaction.")
 
   # トランザクション内でないと実行できないオペレーションを実行しようと
   # しました.
   def_exception(:ErrOnlyUsableInTransaction, 
-		"This operation(%s) only executable in transaction.")
+		"The operation (%s) can only be executed within a transaction.")
 
   # 静的トランザクションと動的トランザクションを混在して利用することは
   # できません. 
   def_exception(:ErrMixedTransaction, 
-		"Static transaction and Dynamic transaction can't use mixed")
+		"Static transactions and dynamic transactions cannot be mixed together.")
+  
+  def_exception(:ErrAdapterInterfaceNotImplement,
+		"Adapter interfase(%s) is not implemented.")
 
   include Enumerable
 
@@ -48,14 +52,23 @@ class ObjectDBM
   CLEAR_READ_CACHE = :ObjectDBM__CLEAR_READ_CACHE
   HOLD_READ_CACHE = :ObjectDBM__HOLD_READ_CACHE
 
+  SCAN_DB = :ObjectDBM__SCAN_DB
+  SCAN_CACHE_ONLY = :ObjectDBM__SCAN_CACHE_ONLY
+  SCAN_DB_ONLY = :ObjectDBM__SCAN_DB_ONLY
+
   READ = :ObjectDBM__READ
   UPDATE = :ObjectDBM__UPDATE
   ABORT = :ObjectDBM__ABORT
 
+  NULL = :ODBM__NULL
+
   TRANSACTIONAL_OPERATIONS = [
     "[]", "update", "[]=", "delete", "indexes",
     "root_names", "keys", "roots", "values",
-    "size"
+    "size", 
+    "has_root_name?", "root_name?", "include?", "has_root?", "root?",
+    "each", "each_pair", "each_root_name", "each_root", "each_value", 
+    "commit", "abort"
   ]
 
   #----------------------------------------------------------------------
@@ -64,9 +77,13 @@ class ObjectDBM
   #	initialize
   #
   #----------------------------------------------------------------------
-  def initialize(dbm_name)
-    @dbm_name = File.expand_path(dbm_name)
-    @dbm = nil
+  def initialize(dbm_name, adapter = DBMAdapter)
+    @db_adapter = adapter
+
+    @db_name = File.expand_path(dbm_name)
+    @db = nil
+
+    @default_value = nil
 
     @transaction_mode = nil
     @default_caching_mode = nil
@@ -76,38 +93,32 @@ class ObjectDBM
 
     @current_transaction = nil
 
-    unusable_methods
+    disable_transactional_methods
   end
 
-  def unusable_methods
-  end
-
-  def u1
+  def disable_transactional_methods
     for op in TRANSACTIONAL_OPERATIONS
       instance_eval %[
-	def #{op} 
+	def #{op}(*opts)
 	  error_not_transaction_start("#{op}")
 	end
-      ]
+      ], __FILE__, __LINE__ - 5
     end
   end
-  private :unusable_methods
+  private :disable_transactional_methods
 
-  def usable_methods
-  end
-
-  def u2
+  def enable_transactional_methods
     for op in TRANSACTIONAL_OPERATIONS
-      instance_eval "undef #{op}"
+      (class<<self; self; end).instance_eval{remove_method op}
     end
   end
-  private :usable_methods
+  private :enable_transactional_methods
 
   def error_not_transaction_start(op)
-    ODBM.fail ErrOnlyUsableInTransaction, op
+    ODBM.Fail ErrOnlyUsableInTransaction, op
   end
   private :error_not_transaction_start
-    
+
   #----------------------------------------------------------------------
   #
   #  accessing  - 
@@ -123,56 +134,64 @@ class ObjectDBM
   #	size
   #
   #----------------------------------------------------------------------
+  attr_accessor :default_value
+  alias default default_value
+  alias default= default_value=
+
   def [](key, mode = nil)
     mode = @default_caching_mode unless mode
 
     return update(key) if mode == UPDATE
     obj = @read_cache[key]
-    return obj unless obj.nil?
+    return obj unless obj == NULL
       
-    return nil unless s = @dbm[key]
+    return @default_value unless s = @db[key]
     obj = Marshal.load(s)
     @read_cache[key] = obj if mode != NO_CACHING
     obj
   end
 
-  def update(key, obj = nil)
-    return self[key] = obj unless obj.nil?
-    return @write_cache[key] = obj unless (obj = @read_cache[key]).nil?
-    ODBM.fail ErrOnlyUsableInTransaction, "[]"
-    return nil unless s = @dbm[key]
-    @write_cache[key] = @read_cache[key] = Marshal.load(s)
+  def update(key, obj = :NO_OPTION)
+    return self[key] = obj unless obj == :NO_OPTION
+
+    return @write_cache[key] = obj unless (obj = @read_cache[key]) == NULL
+    return @default_value unless s = @db[key]
+    obj = @write_cache[key] = @read_cache[key] = Marshal.load(s)
+    @delete_cache.delete(key)
+    obj
   end
 
   def []=(key, obj)
-    return delete(key) if obj.nil?
     @write_cache[key] = @read_cache[key] = obj
     @delete_cache.delete(key)
+    obj
   end
 
   def delete(key)
-    @write_cache.delete(key)
-    @read_cache.delete(key)
-    @delete_cache[key] = TRUE
+    value = @write_cache.delete(key)
+    value ||= @read_cache.delete(key)
+    @delete_cache[key] = true
+    value
   end
 
   def indexes(*keys)
     keys.collect{|key| self[key]}
   end
+  alias indeces indexes
 
-  def roots
+  def root_names
     keys = []
-    each_keys do
+    each_key do
       |key|
-      keys.push = keys
+      keys.push keys
     end
     keys
   end
-  alias keys roots
+  alias keys root_names
 
   def size
     no = 0
-    each_keys do
+    each_key do
       |key|
       no += 1
     end
@@ -199,18 +218,24 @@ class ObjectDBM
   #	root?
   #
   #----------------------------------------------------------------------
-  def has_root_name?(root_name)
-    @current_transaction.has_root_name?(root_name)
+  def has_root_name?(root_name, mode = SCAN_DB)
+    return true if @read_cache.key?(root_name)
+    return false if mode == SCAN_CACHE_ONLY
+    @db.has_key?(root_name)
   end
   alias root_name? has_root_name?
   alias include? has_root_name?
+  alias key? has_root_name?
 
-  def has_root?(root)
-    @read_cache.each_value do
-      |r|
-      return TRUE if root.eq?(r)
+  def has_root?(root, mode = SCAN_DB)
+    return has_root(root, mode){|x,y| x.eq?(y)} if iterator?
+
+    if mode != SCAN_DB_ONLY
+      @read_cache.each_value{|r| return true if yield root, r}
+      return false if mode == SCAN_CASHE_ONLY
     end
-    FALSE
+    @db.each_value{|r| return true if yield root, r}
+    false
   end
   alias root? has_root?
 
@@ -228,15 +253,18 @@ class ObjectDBM
   def each(mode = nil)
     mode = @default_caching_mode unless mode
 
-    for key, value in @read_cache
-      @write_cache[key] = value if mode == UPDATE
-      yield key, value
+    if mode != SCAN_DB_ONLY
+      for key, value in @read_cache
+	@write_cache[key] = value if mode == UPDATE
+	yield key, value
+      end
     end
 
-    @dbm.each_key do
-      |key|
-      if @read_cache[key].nil?
-	obj = Marshal.load(@dbm[key]) 
+    if mode != SCAN_CACHE_ONLY
+      @db.each do |key, row_v|
+	next unless mode == SCAN_DB_ONLY or @read_cache[key] == NULL
+
+	obj = Marshal.load(row_v) 
 	@read_cache[key] = obj if mode == READ_CACHING
 	@write_cache[key] = obj if mode == UPDATE
 	yield key, obj
@@ -245,15 +273,21 @@ class ObjectDBM
   end
   alias each_pair each
 
-  def each_root_name
-    @read_cache.each_key do
-      |key|
-      yield key
+  def each_root_name(mode = nil)
+    mode = @default_caching_mode unless mode
+
+    if mode != SCAN_DB_ONLY
+      @read_cache.each_key do
+	|key|
+	yield key
+      end
     end
       
-    @dbm.each_key do
-      |key|
-      yield key if @read_cache[key].nil?
+    if mode != SCAN_CACHE_ONLY
+      @db.each_key do
+	|key|
+	yield key if mode == SCAN_DB_ONLY or @read_cache[key] == NULL
+      end
     end
   end
   alias each_key each_root_name
@@ -289,16 +323,19 @@ class ObjectDBM
 
     if iterator?
       if @transaction_mode == DYNAMIC_TRANSACTION_MODE
-	ODBM.fail ErrMixedTransaction 
+	ODBM.Fail ErrMixedTransaction 
       end
       @transaction_mode = STATIC_TRANSACTION_MODE
       @current_transaction = StaticTransaction.new(self, mode, outer)
-      @current_transaction.transaction do
-	yield @current_transaction
+#      @current_transaction.transaction do
+#	yield @current_transaction
+#      end
+      @current_transaction.transaction do |txn|
+	yield txn
       end
     else
       if @transaction_mode == STATIC_TRANSACTION_MODE
-	ODBM.fail ErrMixedTransaction 
+	ODBM.Fail ErrMixedTransaction 
       end
       
       @transaction_mode = DYNAMIC_TRANSACTION_MODE
@@ -334,10 +371,12 @@ class ObjectDBM
       txn.outer.write_cache = txn.write_cache.dup
       txn.outer.delete_cache = txn.delete_cache.dup
     else
-      close(HOLD_READ_CACHE)
-      @dbm = DBM.open(@dbm_name)
+#      close(HOLD_READ_CACHE)
+#      @db = @db_adapter.open(@db_name)
+      flush_db
     end
   end
+  
 
   def abort(txn)
     @current_transaction = txn.outer
@@ -353,38 +392,50 @@ class ObjectDBM
   public :abort
 
   def open(mode = READ_CACHING)
-    @dbm = DBM.open(@dbm_name) unless @dbm
-    @read_cache = {} unless @read_cache
-    @write_cache = {} unless @write_cache
-    @delete_cache = {} unless @delete_cache
+    if !@db
+      @db = @db_adapter.open(@db_name)
+      enable_transactional_methods
+    end
+    unless @read_cache
+      @read_cache = {} 
+      @read_cache.default = NULL
+    end
+    unless @write_cache
+      @write_cache = {}
+      @write_cache.default = NULL
+    end
+    unless @delete_cache
+      @delete_cache = {}
+      @delete_cache.default = NULL
+    end
 
-    usable_methods
     self
   end
   private :open
 
-  def flush
+  def flush_db
     @delete_cache.each_key do
       |key|
-      @dbm.delete(key)
+      @db.delete(key)
     end
     
     for key, value in @write_cache
-      @dbm[key] = Marshal.dump(value)
+      @db[key] = Marshal.dump(value)
     end
+    @db.flush
     @write_cache.clear
   end
-  private :flush
+  private :flush_db
 
   def close(opt = CLEAR_READ_CACHE)
     @mode = nil
-    flush
+    flush_db
     @read_cache.clear unless opt == HOLD_READ_CACHE
-    @dbm.close
-    @dbm = nil
+    @db.close
+    @db = nil
 
     @transaction_mode = nil
-    unusable_methods
+    disable_transactional_methods
   end
   private :close
 
@@ -394,11 +445,11 @@ class ObjectDBM
     @write_cache = nil
     @delete_cache = nil
 
-    @dbm.close
-    @dbm = nil
+    @db.close
+    @db = nil
 
     @transaction_mode = nil
-    unusable_methods
+    disable_transactional_methods
   end
   private :close_with_no_flush
 
@@ -411,8 +462,10 @@ class ObjectDBM
   class Transaction
 
     extend Exception2MessageMapper
-    def_exception :ErrNoStartedTransaction, "トランザクションが開始されていません."
-    def_exception :ErrClosedTransaction, "トランザクションはすでに終了しています."
+    def_exception(:ErrNoStartedTransaction, 
+		  "Transaction is not started yet.")
+    def_exception(:ErrClosedTransaction, 
+		  "Transaction is closed already.")
 
     NO_START = :ObjectDBM__TXN_NO_START
     START = :ObjectDBM__TXN_START
@@ -463,7 +516,8 @@ class ObjectDBM
     def transaction
       @status = START
       begin
-	txn, value = catch(ABORT_LABEL){[nil, yield(@current_transaction)]}
+#	txn, value = catch(ABORT_LABEL){[nil, yield(@current_transaction)]}
+	txn, value = catch(ABORT_LABEL){[nil, yield(self)]}
 	if txn
 	  @status = ABORTING
 	  unless txn.equal?(self)
@@ -479,7 +533,7 @@ class ObjectDBM
       ensure
 	case @status
 	when NO_START
-	  Transaction.fail ErrNoStartedTransaction
+	  Transaction.Fail ErrNoStartedTransaction
 
 	when START
 	  @status = COMMITED
@@ -491,7 +545,7 @@ class ObjectDBM
 
 	when ABORTED, COMMITED
 	  
-	  Transactoin.fail ErrClosedTransaction
+	  Transactoin.Fail ErrClosedTransaction
 	end
       end
     end
@@ -504,12 +558,11 @@ class ObjectDBM
     def checkpoint
       case @status
       when START
-	@odbm.flush(txn)
+	@odbm.flush(self)
       when COMMITED, ABORTED
-	Transaction.fail ErrClosedTransaction
+	Transaction.Fail ErrClosedTransaction
       end
     end
-
   end
 
   
@@ -545,7 +598,7 @@ class ObjectDBM
 	end
 	@odbm.commit(self)
       when COMMITED, ABORTED
-	Transaction.fail ErrClosedTransaction
+	Transaction.Fail ErrClosedTransaction
       end
     end
 
@@ -554,7 +607,7 @@ class ObjectDBM
       when START
 	@odbm.flush(self)
       when COMMITED, ABORTED
-	Transaction.fail ErrClosedTransaction
+	Transaction.Fail ErrClosedTransaction
       end
     end
 
@@ -570,10 +623,186 @@ class ObjectDBM
 
 	@odbm.abort(self)
       when COMMITED, ABORTED
-	Transaction.fail ErrClosedTransaction
+	Transaction.Fail ErrClosedTransaction
       end
     end
     public :abort
   end
 
+  class DB_Adapter
+    # open database named <name>
+    def self.open(name)
+      new(name)
+    end
+
+    def initialize(name)
+      ODBM.Fail ErrAdapterInterfaceNotImplement, "initialize"
+      #@db
+    end
+
+    # restore value with <key> 
+    def [](key)
+      ODBM.Fail ErrAdapterInterfaceNotImplement, "[]"
+    end
+
+    # store value with <key>
+    def []=(key, value)
+      ODBM.Fail ErrAdapterInterfaceNotImplement, "[]="
+    end
+
+    # testing for which the db have a key <key>
+    def has_key?(key)
+      @db.each_key do
+	|k|
+	return true if k == key
+      end
+    end
+    alias key? has_key?
+    alias include? has_key?
+    
+    # access all assoc in database.
+    def each(&block)
+      @db.each_key{|key|yield key, @db[key]}
+    end
+
+    # access all keys in database.
+    def each_key(&block)
+      ODBM.Fail ErrAdapterInterfaceNotImplement, "each_key"
+    end
+
+    # access all values in database.
+    def each_value(&block)
+      @db.each_key{|key|yield @db[key]}
+    end
+
+    # delete value with <key>
+    def delete(key)
+      ODBM.Fail ErrAdapterInterfaceNotImplement, "delete"
+    end
+
+    # flush database
+    def flush
+      ODBM.Fail ErrAdapterInterfaceNotImplement, "flush"
+    end
+
+    # close database
+    def close
+      ODBM.Fail ErrAdapterInterfaceNotImplement, "close"
+    end
+  end
+
+  module HashLikeInterface
+    
+    def db
+      ODBM.Fail ErrAdapterInterfaceNotImplement, "db"
+    end
+
+    def [](key)
+      db[key]
+    end
+
+    def []=(key, value)
+      db[key] = value
+    end
+
+    def has_key?(key)
+      db.key?(key)
+    end
+
+    def each(&block)
+      db.each &block
+    end
+
+    def each_key(&block)
+      db.each_key &block
+    end
+
+    def each_value(&block)
+      db.each_value &block
+    end
+
+    def delete(key)
+      db.delete(key)
+    end
+  end
+
+  autoload :DBM, "dbm"
+  class DBM_Adapter<DB_Adapter
+    
+    include HashLikeInterface
+
+    def initialize(name)
+      @db = DBM.open(name)
+    end
+
+    def db
+      @db
+    end
+
+    def flush
+      # noop
+    end
+
+    def close
+      flush
+      @db.close
+      @db = nil
+    end
+
+  end
+
+  autoload :GDBM, "gdbm"
+  class GDBM_Adapter<DBM_Adapter
+    def initialize(name)
+      @db = GDBM.open(name)
+    end
+
+    def flush
+      @db.sync
+    end
+  end
+
+  autoload :SDBM, "sdbm"
+  class SDBM_Adapter<DBM_Adapter
+    def initialize(name)
+      @db = SDBM.open(name)
+    end
+  end
+
+  class PHash_Adapter<DB_Adapter
+    include HashLikeInterface
+
+    def initialize(name)
+      @db_name = name
+      if File.exist?(name)
+        file = File::open(name, 'r')
+	begin
+	  @hash = Marshal.load(file)
+	ensure
+	  file.close
+	end
+      else
+        @hash = {}
+      end
+    end
+
+    def db
+      @hash
+    end
+
+    # commit database
+    def flush
+      newfile = @db_name + '.new'
+      file = open(newfile, 'w')
+      Marshal.dump(@hash, file)
+      file.close
+      File.rename(newfile, @db_name)
+    end
+
+    # close database
+    def close
+      flush
+      @hash = nil
+    end
+  end
 end
