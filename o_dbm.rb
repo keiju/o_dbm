@@ -1,8 +1,8 @@
 #
 #   o_dbm.rb - オブジェクト指向データベース風Object Base DBM
-#   	$Release Version: 0.4.1$
-#   	$Revision: 1.6 $
-#   	$Date: 2002/07/11 11:20:10 $
+#   	$Release Version: 0.5$
+#   	$Revision: 1.7 $
+#   	$Date: 2002/07/11 11:23:17 $
 #   	by Keiju ISHITSUKA(Nippon Rational Inc.)
 #
 # --
@@ -13,10 +13,10 @@
 require "e2mmap"
 
 class ObjectDBM
-  @RELEASE_VERSION = "0.4.1"
-  @LAST_UPDATE_DATE = "02/02/13"
+  @RELEASE_VERSION = "0.5"
+  @LAST_UPDATE_DATE = "02/07/11"
 
-  @RCS_ID='-$Id: o_dbm.rb,v 1.6 2002/07/11 11:20:10 keiju Exp $-'
+  @RCS_ID='-$Id: o_dbm.rb,v 1.7 2002/07/11 11:23:17 keiju Exp $-'
 
   extend Exception2MessageMapper
 
