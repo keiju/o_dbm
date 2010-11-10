@@ -1,8 +1,8 @@
 #
 #   o_dbm.rb - オブジェクト指向データベース風Object Base dbm
 #   	$Release Version: 0.2$
-#   	$Revision: 1.2 $
-#   	$Date: 1998/01/09 08:06:07 $
+#   	$Revision: 1.3 $
+#   	$Date: 1998/03/29 17:09:12 $
 #   	by Keiju ISHITSUKA(Nippon Rational Inc.)
 #
 # --
@@ -15,17 +15,17 @@ require "dbm"
 require "marshal"
 
 class ObjectDBM
-  RCS_ID='-$Header: /home/keiju/var/src/var.lib/ruby/ruby.no-svn/o_dbm/RCS/o_dbm.rb,v 1.2 1998/01/09 08:06:07 keiju Exp $-'
+  @RCS_ID='-$Id: o_dbm.rb,v 1.3 1998/03/29 17:09:12 keiju Exp $-'
 
   extend Exception2MessageMapper
 
-  # トップトランザクションでしか実行できないオペレーション(%s)を実行し
-  # ようとしました.
+  # トップトランザクションでしか実行できないオペレーションを実行しよう
+  # とした.  
   def_exception(:ErrOnlyUsableTopTransaction, 
 		"This operation(%s) only executable top transaction.")
 
-  # トランザクション内でないと実行できないオペレーション(%s)を実行しよ
-  # うとしました. 
+  # トランザクション内でないと実行できないオペレーションを実行しようと
+  # しました.
   def_exception(:ErrOnlyUsableInTransaction, 
 		"This operation(%s) only executable in transaction.")
 
