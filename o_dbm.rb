@@ -1,8 +1,8 @@
 #
 #   o_dbm.rb - オブジェクト指向データベース風Object Base DBM
 #   	$Release Version: 0.5$
-#   	$Revision: 1.7 $
-#   	$Date: 2002/07/11 11:23:17 $
+#   	$Revision: 1.8 $
+#   	$Date: 2002/07/12 04:45:06 $
 #   	by Keiju ISHITSUKA(Nippon Rational Inc.)
 #
 # --
@@ -16,7 +16,7 @@ class ObjectDBM
   @RELEASE_VERSION = "0.5"
   @LAST_UPDATE_DATE = "02/07/11"
 
-  @RCS_ID='-$Id: o_dbm.rb,v 1.7 2002/07/11 11:23:17 keiju Exp $-'
+  @RCS_ID='-$Id: o_dbm.rb,v 1.8 2002/07/12 04:45:06 keiju Exp $-'
 
   extend Exception2MessageMapper
 
@@ -145,7 +145,7 @@ class ObjectDBM
     obj = @read_cache[key]
     return obj unless obj == NULL
       
-    return @default_value unless s = @db[key]
+    return @default_value unless obj = @db[key]
     @read_cache[key] = obj if mode != NO_CACHING
     obj
   end
@@ -154,8 +154,8 @@ class ObjectDBM
     return self[key] = obj unless obj == :NO_OPTION
 
     return @write_cache[key] = obj unless (obj = @read_cache[key]) == NULL
-    return @default_value unless s = @db[key]
-    obj = @write_cache[key] = @read_cache[key] = s
+    return @default_value unless obj = @db[key]
+    @write_cache[key] = @read_cache[key] = obj
 
     @delete_cache.delete(key)
     obj
@@ -228,7 +228,7 @@ class ObjectDBM
   alias key? has_root_name?
 
   def has_root?(root, mode = SCAN_DB)
-    return has_root(root, mode){|x,y| x.eq?(y)} if iterator?
+    return has_root(root, mode){|x,y| x.equal?(y)} if iterator?
 
     if mode != SCAN_DB_ONLY
       @read_cache.each_value{|r| return true if yield root, r}
