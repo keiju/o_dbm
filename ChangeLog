@@ -1,0 +1,15 @@
+Thu Nov 11 01:01:54 2010  Keiju Ishitsuka  <keiju@ishitsuka.com>
+
+	* o_dbm.rb: first version
+
+Local variables:
+add-log-time-format: (lambda ()
+  (let* ((time (current-time))
+	 (system-time-locale "C")
+	 (diff (+ (cadr time) 32400))
+	 (lo (% diff 65536))
+	 (hi (+ (car time) (/ diff 65536))))
+  (format-time-string "%a %b %e %H:%M:%S %Y" (list hi lo) t)))
+indent-tabs-mode: t
+tab-width: 8
+end:
