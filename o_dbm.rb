@@ -16,7 +16,7 @@ class ObjectDBM
   @RELEASE_VERSION = "0.5.1"
   @LAST_UPDATE_DATE = "02/07/12"
 
-  @RCS_ID='-$Id: o_dbm.rb,v 1.9 2002/07/12 04:46:28 keiju Exp $-'
+  @RCS_ID='-$Id: o_dbm.rb,v 1.9 2002/07/12 04:46:28 keiju Exp keiju $-'
 
   extend Exception2MessageMapper
 
@@ -77,7 +77,7 @@ class ObjectDBM
   #	initialize
   #
   #----------------------------------------------------------------------
-  def initialize(dbm_name, adapter = DBMAdapter)
+  def initialize(dbm_name, adapter = DBM_Adapter)
     @db_adapter = adapter
 
     @db_name = File.expand_path(dbm_name)
