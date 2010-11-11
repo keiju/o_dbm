@@ -118,6 +118,14 @@ test/% : test-%.rb
 	@chmod +x $@
 
 #
+#
+doc: doc/o_dbm.jp.html
+
+doc/o_dbm.jp.html: doc/o_dbm.jp.rd
+	env RUBYLIB= RUBYOPT= rd2 -rrd/rd2html-lib --html-title="o_dbm"  doc/o_dbm.jp.rd > doc/o_dbm.jp.html
+
+
+#
 #	Definition for dependency of PERL(%.ppl)
 #
 PERL	=	perl

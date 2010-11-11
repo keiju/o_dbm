@@ -1,3 +1,8 @@
+Thu Nov 11 13:57:27 2010  Keiju Ishitsuka  <keiju@ishitsuka.com>
+
+	* doc/o_dbm.jp.rd: README.jpから移動
+	* Makefile: docタグ追加
+
 Thu Nov 11 13:48:49 2010  Keiju Ishitsuka  <keiju@ishitsuka.com>
 
 	* Makefile README.jp, TODO, test-o_dbm.rb: 追加
