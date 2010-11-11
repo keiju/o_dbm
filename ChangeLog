@@ -1,3 +1,8 @@
+Thu Nov 11 14:19:15 2010  Keiju Ishitsuka  <keiju@ishitsuka.com>
+
+	* o_dbm.rb: エンコーディングをutf-8に変更
+	* README: 追加
+
 Thu Nov 11 14:13:56 2010  Keiju Ishitsuka  <keiju@ishitsuka.com>
 
 	* LICENSE, doc/o_dbm.jp.html, o_dbm.gemspec: 追加
