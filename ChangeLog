@@ -1,3 +1,7 @@
+Thu Nov 11 14:13:56 2010  Keiju Ishitsuka  <keiju@ishitsuka.com>
+
+	* LICENSE, doc/o_dbm.jp.html, o_dbm.gemspec: 追加
+
 Thu Nov 11 13:57:27 2010  Keiju Ishitsuka  <keiju@ishitsuka.com>
 
 	* doc/o_dbm.jp.rd: README.jpから移動

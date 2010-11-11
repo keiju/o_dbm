@@ -1,0 +1,139 @@
+<?xml version="1.0" ?>
+<!DOCTYPE html 
+  PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>o_dbm</title>
+</head>
+<body>
+<h1><a name="label-0" id="label-0">["o_dbm.rb - オブジェクト指向データベース風 Object Base dbm"]</a></h1><!-- RDLabel: "o_dbm.rb - オブジェクト指向データベース風 Object Base dbm" -->
+<pre>Keiju ISHITSUKA(keiju@ishitsuka.com)</pre>
+<h2><a name="label-1" id="label-1">["使い方"]</a></h2><!-- RDLabel: "使い方" -->
+<h5><a name="label-2" id="label-2">["ObjectDBM.new(db, adapter = ObjectDBM::DBM_Adapter)"]</a></h5><!-- RDLabel: "ObjectDBM.new(db, adapter = ObjectDBM::DBM_Adapter)" -->
+<p>ObjectDBMを作成します. adapterでどの物理DBMを用いるか指定します. 以下のアダ
+プタが用意されています</p>
+<pre>DBM_Adapter: DBMを用いる
+GDBM_Adapter: GDBMを用いる
+SDBM_Adapter: SDBMを用いる
+PHash_Adapter: フラットファイルを用いる(pstoreと同じフォーマット)
+VDB: 仮想データベースを用いる(実際にはファイルに書き込まず, メモリ上
+     だけ処理を行う)</pre>
+<p>デフォルトでは, DBMを用います.</p>
+<h5><a name="label-3" id="label-3">["ObjectDBM#[key, mode = nil]"]</a></h5><!-- RDLabel: "ObjectDBM#[key, mode = nil]" -->
+<p>keyに関連づけられたオブジェクトを返します. mode は</p>
+<pre>nil:			キャッシュを用い. キャッシュを優先する.
+ObjectDBM::UPDATE:	物理データベースから読み込みます.
+ObjectDBM::NO_CACHING	キャッシュに登録しません.</pre>
+<p>があります. デフォルトはnilです.</p>
+<h5><a name="label-4" id="label-4">["ObjectDBM#update(key, obj)"]</a></h5><!-- RDLabel: "ObjectDBM#update(key, obj)" -->
+<p>objが省略されたとき:</p>
+<pre>keyに関連づけられたオブジェクトを物理DBに書き込むように指定します.</pre>
+<p>objが指定されたとき:</p>
+<pre>objを物理DBに書き込むように指定します</pre>
+<h5><a name="label-5" id="label-5">["ObjectDBM#[key]=(obj)"]</a></h5><!-- RDLabel: "ObjectDBM#[key]=(obj)" -->
+<p>objをkeyに関連づけてDBに書き込むように指定します.</p>
+<h5><a name="label-6" id="label-6">["ObjectDBM#delete(key)"]</a></h5><!-- RDLabel: "ObjectDBM#delete(key)" -->
+<p>keyに関連づけられたobjを削除するように指定します.</p>
+<h5><a name="label-7" id="label-7">["ObjectDBM#indexes(*keys)/ObjectDBM#indeces(*keys)"]</a></h5><!-- RDLabel: "ObjectDBM#indexes(*keys)/ObjectDBM#indeces(*keys)" -->
+<p>keys関連づけられたobjの配列を返します.</p>
+<h5><a name="label-8" id="label-8">["ObjectDBM#root_names/ObjectDBM#keys"]</a></h5><!-- RDLabel: "ObjectDBM#root_names/ObjectDBM#keys" -->
+<p>登録されているkeyの配列を返します.</p>
+<h5><a name="label-9" id="label-9">["ObjectDBM#size"]</a></h5><!-- RDLabel: "ObjectDBM#size" -->
+<p>登録されているkeyの数を返します.</p>
+<h5><a name="label-10" id="label-10">["ObjectDBM#roots(mode = nil)/ObjectDBM#values(mode = nil)"]</a></h5><!-- RDLabel: "ObjectDBM#roots(mode = nil)/ObjectDBM#values(mode = nil)" -->
+<p>登録されているルートオブジェクトを返します. modeは:</p>
+<pre>nil:			  読み込みキャッシュに登録しません
+ObjectDBM::UPDATE:	  読み込んだオブジェクトを書き込み指定します.
+ObjectDBM::READ_CACHING 読み込みキャッシュに登録します</pre>
+<p>です. デフォルトはnilに指定されています.</p>
+<h5><a name="label-11" id="label-11">["ObjectDBM#has_root_name?(root_name, mode = SCAN_DB)"]</a></h5><!-- RDLabel: "ObjectDBM#has_root_name?(root_name, mode = SCAN_DB)" -->
+<p>キーとしてroot_nameが登録されているか調べます. modeは:</p>
+<pre>ObjextDBM::SCAN_DB	      物理データベースをスキャンします
+ObjextDBM::SCAN_CACHE_ONLY  読み込みキャッシュのみチェックします</pre>
+<p>デフォルトはSCAN_DBです</p>
+<h5><a name="label-12" id="label-12">["ObjectDBM#root_name?/include?/key?"]</a></h5><!-- RDLabel: "ObjectDBM#root_name?/include?/key?" -->
+<p>ObjectDBM#has_root_name?()とおなじです.</p>
+<h5><a name="label-13" id="label-13">["ObjectDBM#has_root?(root, mode = SCAN_DB){...}"]</a></h5><!-- RDLabel: "ObjectDBM#has_root?(root, mode = SCAN_DB){...}" -->
+<p>rootがDBに登録されているか, 登録するようにしていされているかどうかを調べ
+ます. iteratorとして呼ばれたときは, 比較をiteratorを用いて行います.</p>
+<p>mode:</p>
+<pre>ObjextDBM::SCAN_DB	      物理データベースをスキャンします
+ObjextDBM::SCAN_CACHE_ONLY  読み込みキャッシュのみチェックします
+ObjextDBM::SCAN_DB_ONLY     物理データベースのみチェックします</pre>
+<p>デフォルトはSCAN_DBです.</p>
+<h5><a name="label-14" id="label-14">["ObjectDBM#root?"]</a></h5><!-- RDLabel: "ObjectDBM#root?" -->
+<pre>has_root?と同じです</pre>
+<h5><a name="label-15" id="label-15">["ObjectDBM#each(mode = nil){|key, value| ...}"]</a></h5><!-- RDLabel: "ObjectDBM#each(mode = nil){|key, value| ...}" -->
+<p>keyとvalueを引数としてブロックを評価します.</p>
+<p>mode:</p>
+<pre>nil			      読み込みキャッシュに登録しません.
+ObjectDBM::UPDATE:	      読み込んだオブジェクトを書き込み指定します.
+ObjectDBM::READ_CACHING     読み込みキャッシュに登録します
+ObjextDBM::SCAN_CACHE_ONLY  読み込みキャッシュのみスキャンします
+ObjextDBM::SCAN_DB_ONLY     物理データベースのみスキャンします</pre>
+<p>デフォルトは@default_caching_modeです.</p>
+<h5><a name="label-16" id="label-16">["ObjectDBM#each_pair"]</a></h5><!-- RDLabel: "ObjectDBM#each_pair" -->
+<p>ObjectDBM#eachと同じです.</p>
+<h5><a name="label-17" id="label-17">["ObjectDBM#each_root_name(mode = nil){|key| ...}"]</a></h5><!-- RDLabel: "ObjectDBM#each_root_name(mode = nil){|key| ...}" -->
+<p>keyを引数としてブロックを評価します.</p>
+<p>mode:</p>
+<pre>nil			      読み込みキャッシュに登録しません.
+ObjectDBM::UPDATE:	      読み込んだオブジェクトを書き込み指定します.
+ObjectDBM::READ_CACHING     読み込みキャッシュに登録します
+ObjextDBM::SCAN_CACHE_ONLY  読み込みキャッシュのみスキャンします
+ObjextDBM::SCAN_DB_ONLY     物理データベースのみスキャンします</pre>
+<p>デフォルトは@default_caching_modeです.</p>
+<h5><a name="label-18" id="label-18">["ObjectDBM#each_key"]</a></h5><!-- RDLabel: "ObjectDBM#each_key" -->
+<p>ObjectDBM#each_root_nameと同じです.</p>
+<h5><a name="label-19" id="label-19">["ObjectDBM#each_root(mode = nil){|obj| ...}"]</a></h5><!-- RDLabel: "ObjectDBM#each_root(mode = nil){|obj| ...}" -->
+<p>objを引数としてブロックを評価します.</p>
+<p>mode:</p>
+<pre>nil			      読み込みキャッシュに登録しません.
+ObjectDBM::UPDATE:	      読み込んだオブジェクトを書き込み指定します.
+ObjectDBM::READ_CACHING     読み込みキャッシュに登録します
+ObjextDBM::SCAN_CACHE_ONLY  読み込みキャッシュのみスキャンします
+ObjextDBM::SCAN_DB_ONLY     物理データベースのみスキャンします</pre>
+<p>デフォルトは@default_caching_modeです.</p>
+<h5><a name="label-20" id="label-20">["ObjectDBM#each_value"]</a></h5><!-- RDLabel: "ObjectDBM#each_value" -->
+<p>ObjectDBM#each_rootと同じです.</p>
+<h5><a name="label-21" id="label-21">["ObjectDBM#transaction(mode = READ_CACHING){...}"]</a></h5><!-- RDLabel: "ObjectDBM#transaction(mode = READ_CACHING){...}" -->
+<p>イテレータとして呼ばれたときには, 静的トランザクションを開始します. イテ
+レータが正常に終了したときにはコミットします. つまり, 上位トランザクショ
+ンへ変更を反映します. 最上位トランザクションの場合はデータベースに反映し
+ます. 最後にデータベースをクローズします.</p>
+<p>イテレータでないときには動的トランザクションを開始します. modeは
+default_caching_modeの指定です.</p>
+<h5><a name="label-22" id="label-22">["ObjectDBM#current_transaction"]</a></h5><!-- RDLabel: "ObjectDBM#current_transaction" -->
+<p>現在のトランザクションを返します.</p>
+<h5><a name="label-23" id="label-23">["ObjectDBM#commit(txn)"]</a></h5><!-- RDLabel: "ObjectDBM#commit(txn)" -->
+<p>トランザクションtxnをコミットします. つまり, 上位トランザクションへ変更
+を反映します. 最上位トランザクションの場合はデータベースに反映します. ま
+た, トランザクションtxnの下位トランザクションもコミットされます. 最後に
+データベースをクローズします.</p>
+<h5><a name="label-24" id="label-24">["ObjectDBM#flush(txn)"]</a></h5><!-- RDLabel: "ObjectDBM#flush(txn)" -->
+<p>トランザクションtxnのチェックポイントを実行します. ここまでの変更結果を
+上位のトランザクションに反映します. 最上位の場合はデータベースに書き込み
+ます. データベースは閉じません.</p>
+<h5><a name="label-25" id="label-25">["ObjectDBM#abort(txn)"]</a></h5><!-- RDLabel: "ObjectDBM#abort(txn)" -->
+<p>これまでの変更結果を破棄します. トランザクションtxnの下位トランザクショ
+ンもアボートされます.</p>
+<h5><a name="label-26" id="label-26">["StaticTransaction#abort(value = nil)"]</a></h5><!-- RDLabel: "StaticTransaction#abort(value = nil)" -->
+<p>これまでの変更結果を破棄します. トランザクションブロックからも抜け出します。</p>
+<h5><a name="label-27" id="label-27">["StaticTransaction#checkpoint"]</a></h5><!-- RDLabel: "StaticTransaction#checkpoint" -->
+<p>トランザクションtxnのチェックポイントを実行します. すなわち, ここまでの
+変更結果を上位のトランザクションに反映します. 最上位の場合はデータベース
+に書き込みます. データベースは閉じません.</p>
+<h5><a name="label-28" id="label-28">["DynamicTransaction#commit"]</a></h5><!-- RDLabel: "DynamicTransaction#commit" -->
+<p>トランザクションtxnをコミットします. つまり, 上位トランザクションへ変更
+を反映します. 最上位トランザクションの場合はデータベースに反映します. デー
+タベースをクローズします.</p>
+<h5><a name="label-29" id="label-29">["DynamicTransaction#checkpoint"]</a></h5><!-- RDLabel: "DynamicTransaction#checkpoint" -->
+<p>トランザクションtxnのチェックポイントを実行します. ここまでの変更結果を
+上位のトランザクションに反映します. 最上位の場合はデータベースに書き込み
+ます. データベースは閉じません.</p>
+<h5><a name="label-30" id="label-30">["DynamicTransaction#abort"]</a></h5><!-- RDLabel: "DynamicTransaction#abort" -->
+<p>これまでの変更結果を破棄します.</p>
+
+</body>
+</html>
